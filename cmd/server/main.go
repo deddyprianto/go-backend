@@ -1,6 +1,7 @@
 package main
 
 import (
+	"api-garuda/pkg/database"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -202,44 +203,107 @@ func modif(p *Person) *Person{
 }
 
 func main() {
-    var wg sync.WaitGroup
-    dataChannelDetail := make(chan string, 1) // Buffered channel
-    dataChannels := make(chan string, 1)      // Buffered channel
-    dataChannel := make(chan string, 1)       // Buffered channel;
-    fmt.Println("Loading...")
+    // var wg sync.WaitGroup
+    // dataChannelDetail := make(chan string, 1) // Buffered channel
+    // dataChannels := make(chan string, 1)      // Buffered channel
+    // dataChannel := make(chan string, 1)       // Buffered channel;
+    // fmt.Println("Loading...")
 
-    // Start kedua goroutines
-    wg.Add(3) // Kita akan menunggu 3 goroutines
-    go fetchDataDetail(dataChannelDetail, &wg)
-    go fetchDataArray(dataChannels, &wg)
-    go fetchData(dataChannel, &wg)
+    // // Start kedua goroutines
+    // wg.Add(3) // Kita akan menunggu 3 goroutines
+    // go fetchDataDetail(dataChannelDetail, &wg)
+    // go fetchDataArray(dataChannels, &wg)
+    // go fetchData(dataChannel, &wg)
 
-    // Wait sampai semua selesai di background
-    go func() {
-        wg.Wait()
-        // close(dataChannelDetail)
-        // close(dataChannels)
-        close(dataChannel)
-    }()
+    // // Wait sampai semua selesai di background
+    // go func() {
+    //     wg.Wait()
+    //     // close(dataChannelDetail)
+    //     // close(dataChannels)
+    //     close(dataChannel)
+    // }()
 
-    // Read results
-    // dataDetail := <-dataChannelDetail
-    // fmt.Println("dataDetail:", dataDetail)
+    // // Read results
+    // // dataDetail := <-dataChannelDetail
+    // // fmt.Println("dataDetail:", dataDetail)
 
-    // dataCollection := <-dataChannels
-    // fmt.Println("dataCollection:", dataCollection)
+    // // dataCollection := <-dataChannels
+    // // fmt.Println("dataCollection:", dataCollection)
 
-    singleCol := <-dataChannel
-    fmt.Println("singleCollection:", singleCol)
+    // singleCol := <-dataChannel
+    // fmt.Println("singleCollection:", singleCol)
 
-    fmt.Println("End Loading!")
+    // fmt.Println("End Loading!")
 
-    countBags := AppState{
-        Count: 0,
-    }
+    // countBags := AppState{
+    //     Count: 0,
+    // }
     
-    update := updateData(&countBags)
-    fmt.Println(update.Count)
-    println(countBags.Count)
+    // update := updateData(&countBags)
+    // fmt.Println(update.Count)
+    // println(countBags.Count)
+
+
+    db ,err := database.NewConnection()
+    if err != nil{
+        fmt.Println("gagal")
+        return
+    }
+    defer db.Close()
+    err = database.PingDatabase(db)
+    if err != nil{
+        fmt.Println("gagal")
+        return
+    }
+    fmt.Println("koneksi ke database berhasil")
+
+    // doing execute query
+    // id, err := database.CreateUser(db, models.User{
+    //     Username:  "Tina",
+    //     Email:     "tina@gmail.com",
+    //     Password: "tina cantik",
+    //     CreatedAt: "2024-01-01",
+    //     UpdatedAt: "2025-01-01",
+    // })
+    // if err != nil{
+    //     fmt.Printf("failed add new data: %v", err)
+    //     return
+    // }
+    // fmt.Println("berhasil add new data", id)
+
+    // users,err := database.GetAllUSers(db)
+    // if err != nil{
+    //     fmt.Println("Gagal mengambil semua user:", err)
+    //     return
+    // }
+    // fmt.Println("daftar user", users)
+
+    // usersDetail, err := database.GetUserById(db, 2)
+    // if err != nil{
+    //     fmt.Println("Gagal mengambil user by id:", err)
+    //     return
+    // }
+    // fmt.Println("user by id", usersDetail)
+
+    // updateUser, err := database.UpdateUser(db, models.User{
+    //     ID: 2,
+    //     Username: "bastian steal",
+    //     Email: "basbas@gmail.com",
+    //     Password: "bas bas bas 123123",
+    //     CreatedAt: "2025-01-01",
+    //     UpdatedAt: "2025-01-01",
+    // })
+    // if err != nil{
+    //     fmt.Println("Gagal update user:", err)
+    //     return
+    // }
+    // fmt.Println("berhasil update user", updateUser)
+
+    // deleteUser, err := database.DeleteUser(db, 5)
+    // if err != nil{
+    //     fmt.Println("Gagal delete user:", err)
+    //     return
+    // }
+    // fmt.Println("berhasil delete user", deleteUser)
 
 }
