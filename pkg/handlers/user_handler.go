@@ -58,3 +58,37 @@ func (h *UserHandler) CreateUser(c *fiber.Ctx) error {
         "id": id,
     })
 }
+
+func (h *UserHandler) UpdateUser(c *fiber.Ctx) error{
+	var user models.User
+	if err := c.BodyParser(&user); err != nil{
+		return c.Status(400).JSON(fiber.Map{	
+			"message": "error di awal:" + err.Error(),
+		})
+	}
+
+	id , err := database.UpdateUser(h.db, user)
+	if err != nil{
+		return c.Status(500).JSON(fiber.Map{
+			"message": "error di query:" + err.Error(),
+		})
+	}
+	return c.JSON(fiber.Map{
+		"rowsAffected": id,
+	})
+}
+
+func (h *UserHandler) DeleteUser(c *fiber.Ctx) error{
+	id := c.Params("id")
+	rowsAffected, err := database.DeleteUser(h.db, id);
+	if err != nil{
+		return c.Status(500).JSON(fiber.Map{
+			"message": "error di awal" + err.Error(),
+		})
+	}
+
+	return c.JSONP(fiber.Map{
+		"rows_affected": rowsAffected,
+	})
+
+}
