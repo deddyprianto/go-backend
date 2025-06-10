@@ -4,6 +4,7 @@ import (
 	"api-garuda/pkg/models"
 	"database/sql"
 	"fmt"
+	"time"
 )
 
 func GetAllUSers(db *sql.DB) ([]models.User, error){
@@ -26,7 +27,7 @@ func GetAllUSers(db *sql.DB) ([]models.User, error){
 	return users, nil
 }
 
-func GetUserById(db *sql.DB, id int) (models.User,error){
+func GetUserById(db *sql.DB, id string) (models.User,error){
 	query := "SELECT id, username, email, password, created_at, updated_at FROM users WHERE id = ?"
 	row := db.QueryRow(query, id)
 	var user models.User
@@ -57,6 +58,9 @@ func UpdateUser(db *sql.DB, user models.User) (int64,error){
 
 
 func CreateUser(db *sql.DB, user models.User) (int64 ,error){
+	user.CreatedAt = time.Now()
+	user.UpdatedAt = time.Now()
+	
 	query := "INSERT INTO users (username, email, password, created_at, updated_at) VALUES (?, ?, ?, ?, ?)"
 
 	stmt , err := db.Prepare(query)

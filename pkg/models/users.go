@@ -1,11 +1,13 @@
 package models
 
+import "time"
+
 
 type User struct{
-	ID int `db:"id"`
+	ID string `db:"id"`
 	Username string `db:"username"`
 	Email string `db:"email"`
 	Password string `db:"password"`
-	CreatedAt string `db:"created_at"`
-	UpdatedAt string `db:"updated_at"`
+	CreatedAt time.Time `db:"created_at"`
+	UpdatedAt time.Time `db:"updated_at"`
 }
