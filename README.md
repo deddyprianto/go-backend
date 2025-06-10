@@ -26,5 +26,6 @@ REST API sederhana menggunakan [Fiber](https://gofiber.io/) — framework web ya
 Clone repository:
 
 ```bash
-git clone https://github.com/username/nama-repo.git
-cd nama-repo
+git clone https://github.com/deddyprianto/go-backend
+cd go-backend
+
