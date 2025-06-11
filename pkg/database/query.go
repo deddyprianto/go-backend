@@ -1,8 +1,8 @@
 package database
 
 import (
-	"api-garuda/pkg/models"
 	"api-garuda/pkg/helper"
+	"api-garuda/pkg/models"
 	"database/sql"
 	"fmt"
 	"time"
@@ -72,22 +72,27 @@ func GetUserById(db *sql.DB, id string) (models.User, error) {
 }
 
 
-func UpdateUser(db *sql.DB, user models.User) (int64,error){
-	query := "UPDATE users SET username = ?, email = ?, password = ?, created_at = ?, updated_at = ? WHERE id = ?"
-	stmt, err  := db.Prepare(query)
+func UpdateUser(db *sql.DB, user models.User, id string) (string, error){
+	user.CreatedAt = time.Now()
+	user.UpdatedAt = time.Now()
 
+	query := "UPDATE users SET username=?, email=?, password=?, created_at=?, updated_at=? WHERE id=?"
+
+	stmt, err := db.Prepare(query)
 	if err != nil{
-		return 0, fmt.Errorf("anda gagal update data : %v", err)
+		return "", fmt.Errorf("anda gagal diawal pada fn, update query : %v", err)
 	}
 	defer stmt.Close()
-
-	result , err := stmt.Exec(user.Username,user.Email, user.Password, user.CreatedAt, user.UpdatedAt, user.ID)
-
+	
+	result, err := stmt.Exec(user.Username, user.Email, user.Password, user.CreatedAt, user.UpdatedAt, id)
 	if err != nil{
-		return 0, fmt.Errorf("kau gagal anjing: %v", err)
+		return "", fmt.Errorf("gagal update user dengan id: %v", err)
 	}
 
-	return result.RowsAffected()
+	if affected , err := result.RowsAffected(); err != nil || affected == 0{
+		return "", fmt.Errorf("gagal update user dengan ID %v", id)
+	}
+	return id , nil
 }
 
 
