@@ -44,8 +44,6 @@ func GetAllUSers(db *sql.DB) (Response, error) {
 		},nil
     }
 
-
-    fmt.Println(users, "KOCAK BAMBANG PAMUNGKAS")
     return Response{
 		Data: users,
 		Message: "success",
@@ -153,13 +151,13 @@ func DeleteUser(db *sql.DB, id string) (int64, error){
 	query := "DELETE FROM users WHERE id = ?"
 	stmt , err := db.Prepare(query)
 	if err != nil{
-		return 0, fmt.Errorf("gagal delete data: %v", err)
+        return 0, fmt.Errorf("gagal prepare delete query: %v", err)
 	}
 	defer stmt.Close()
 	
 	result, err := stmt.Exec(id)
 	if err != nil {
-		return 0, fmt.Errorf("kau gagal anjing delete data : %v" , err)
+        return 0, fmt.Errorf("gagal delete data: %v", err)
 	}
 	return result.RowsAffected()
 }

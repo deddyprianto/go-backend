@@ -43,14 +43,14 @@ func (h *UserHandler) CreateUser(c *fiber.Ctx) error {
     var user models.User
     if err := c.BodyParser(&user); err != nil {
         return c.Status(400).JSON(fiber.Map{
-            "message": err.Error(),
+            "message": "Failed to parse user data: " + err.Error(),
         })
     }
     
     id, err := database.CreateUser(h.db, user)
     if err != nil {
         return c.Status(500).JSON(fiber.Map{
-            "message": err.Error(),
+            "message": "Failed to create user: " + err.Error(),
         })
     }
     
@@ -60,25 +60,24 @@ func (h *UserHandler) CreateUser(c *fiber.Ctx) error {
 }
 
 func (h *UserHandler) UpdateUser(c *fiber.Ctx) error{
-	// get ID dari params
+	// get ID from params
 	id := c.Params("id");
 
-	// lakukan parsing data
 	var user models.User
 	if err := c.BodyParser(&user); err != nil{
 		return c.Status(400).JSON(fiber.Map{	
-			"message": "error di awal:" + err.Error(),
+			"message": "Failed to parse user data: " + err.Error(),
 		})
 	}
 	updatedId, err := database.UpdateUser(h.db, user, id)
 	if err != nil{
 		return c.Status(500).JSON(fiber.Map{
-			"PESAN": "ada error di query:" +err.Error(),
+			"message": "Failed to update user: " +err.Error(),
 		})
 	}
 
 	return c.JSON(fiber.Map{
-		"message": "user berhasil di update",
+		"message": "success update user",
 		"id": updatedId,
 	})
 }
@@ -88,12 +87,18 @@ func (h *UserHandler) DeleteUser(c *fiber.Ctx) error{
 	rowsAffected, err := database.DeleteUser(h.db, id);
 	if err != nil{
 		return c.Status(500).JSON(fiber.Map{
-			"message": "error di awal" + err.Error(),
+			"message": "Failed to delete user: " + err.Error(),
 		})
 	}
 
-	return c.JSONP(fiber.Map{
-		"rows_affected": rowsAffected,
+	if rowsAffected == 0{
+		return c.Status(404).JSON(fiber.Map{
+			"message": "User not found",
+		})
+	}
+
+	return c.JSON(fiber.Map{
+		"message": "success delete user",
 	})
 
 }
