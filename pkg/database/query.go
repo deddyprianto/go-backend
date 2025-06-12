@@ -5,12 +5,18 @@ import (
 	"api-garuda/pkg/models"
 	"database/sql"
 	"fmt"
+	"strconv"
 	"time"
 )
 
 type Response struct{
 	Data []models.User `json:"data"`
 	Message string     `json:"message"`
+}
+
+type ResponseSaveSingle struct{
+    Message string `json:"message"`
+    Data int `json:"data"`
 }
 
 func GetAllUSers(db *sql.DB) (Response, error) {
@@ -112,46 +118,34 @@ func UpdateUser(db *sql.DB, user models.User, id string) (string, error){
 	return id , nil
 }
 
-func CreateUser(db *sql.DB, user models.User) (Response, error) {
-    user.CreatedAt = time.Now()
-    user.UpdatedAt = time.Now()
-    
-    query := "INSERT INTO users (username, email, password, created_at, updated_at) VALUES (?, ?, ?, ?, ?)"
-    stmt, err := db.Prepare(query)
-    if err != nil {
-        return Response{Message: err.Error()}, fmt.Errorf("gagal save data: %v", err)
+func CreateUser(db *sql.DB, user models.User) (ResponseSaveSingle ,error){
+	user.CreatedAt = time.Now()
+	user.UpdatedAt = time.Now()
+	
+	query := "INSERT INTO users (username, email, password, created_at, updated_at) VALUES (?, ?, ?, ?, ?)"
+
+	stmt , err := db.Prepare(query)
+	if err != nil{
+		return ResponseSaveSingle{Message: err.Error()}, fmt.Errorf("gagal insert data: %v", err)
+	}
+	defer stmt.Close()
+
+	result ,err := stmt.Exec(user.Username, user.Email, user.Password, user.CreatedAt, user.UpdatedAt)
+
+	if err != nil{
+		return ResponseSaveSingle{Message: err.Error()} , fmt.Errorf("gagal insert data: %v", err)
+	}
+
+    id, err := result.LastInsertId()
+    if err != nil{
+        return ResponseSaveSingle{
+            Message: err.Error(),
+            Data: 0,
+        }, err
     }
-    defer stmt.Close()
-    
-    result, err := stmt.Exec(user.Username, user.Email, user.Password, user.CreatedAt, user.UpdatedAt)
-    if err != nil {
-        return Response{Message: err.Error()}, fmt.Errorf("gagal execute query: %v", err)
-    }
-    
-    // Get last inserted ID
-    lastId, err := result.LastInsertId()
-    if err != nil {
-        return Response{Message: err.Error()}, fmt.Errorf("gagal mendapatkan last insert id: %v", err)
-    }
-    
-    // Fetch user data that was just created
-    var createdUser models.User
-    err = db.QueryRow("SELECT * FROM users WHERE id = ?", lastId).Scan(
-        &createdUser.ID,
-        &createdUser.Username,
-        &createdUser.Email,
-        &createdUser.Password,
-        &createdUser.CreatedAt,
-        &createdUser.UpdatedAt,
-    )
-    
-    if err != nil {
-        return Response{Message: err.Error()}, fmt.Errorf("gagal mendapatkan data user yang baru dibuat: %v", err)
-    }
-    
-    return Response{
-        Message: "success",
-        DataSingle: createdUser,
+    return ResponseSaveSingle{
+        Message: "success save data with id: " + strconv.Itoa(int(id)),
+        Data: int(id),
     }, nil
 }
 
