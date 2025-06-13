@@ -14,16 +14,16 @@ type User struct{
 	Password string `db:"password"`
 	CreatedAt time.Time `db:"created_at"`
 	UpdatedAt time.Time `db:"updated_at"`
+	DateModification string `db:"date_modification" json:"date_modification"`
 }
 // Error ini terjadi karena kita perlu menangani konversi tipe data untuk kolom created_at dan updated_at secara eksplisit ketika melakukan scanning data dari database. MySQL mengembalikan nilai datetime sebagai []uint8, dan kita perlu mengkonversinya ke time.Time.
-
 // Berikut cara memperbaikinya dengan menambahkan method Scan custom untuk struct User:
 
 func (u *User) Scan(rows *sql.Rows) error {
 	var createdAt [] uint8
 	var updatedAt [] uint8
 
-	err := rows.Scan(&u.ID, &u.Username, &u.Email, &u.Password, &createdAt, &updatedAt)
+	err := rows.Scan(&u.ID, &u.Username, &u.Email, &u.Password,&createdAt, &updatedAt, &u.DateModification)
 	if err != nil{
 		return err
 	}

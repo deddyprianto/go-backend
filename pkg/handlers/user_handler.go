@@ -19,10 +19,10 @@ func NewUserHandler(db *sql.DB) *UserHandler{
 }
 
 func (h *UserHandler) GetAllUsers(c *fiber.Ctx) error {
-	users , err := database.GetAllUSers(h.db)
+	users ,err := database.GetAllUSers(h.db)
 	if err != nil{
 		return c.Status(500).JSON(fiber.Map{
-			"message": err.Error(),
+			"message": "Failed to get users: " + err.Error(),
 		})
 	}
 	return c.JSON(users)
@@ -41,12 +41,12 @@ func (h *UserHandler) GetUserById(c *fiber.Ctx) error {
 
 func (h *UserHandler) CreateUser(c *fiber.Ctx) error {
     var user models.User
+	
     if err := c.BodyParser(&user); err != nil {
         return c.Status(400).JSON(fiber.Map{
             "message": "Failed to parse user data: " + err.Error(),
         })
-    }
-    
+    }    
     id, err := database.CreateUser(h.db, user)
     if err != nil {
         return c.Status(500).JSON(fiber.Map{
@@ -72,7 +72,7 @@ func (h *UserHandler) UpdateUser(c *fiber.Ctx) error{
 	updatedId, err := database.UpdateUser(h.db, user, id)
 	if err != nil{
 		return c.Status(500).JSON(fiber.Map{
-			"message": "Failed to update user: " +err.Error(),
+			"message": "Failed to update user: " + err.Error(),
 		})
 	}
 

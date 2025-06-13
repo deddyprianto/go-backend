@@ -51,7 +51,7 @@ func GetAllUSers(db *sql.DB) (Response, error) {
 }
 
 func GetUserById(db *sql.DB, id string) (models.User, error) {
-    query := "SELECT id, username, email, password, created_at, updated_at FROM users WHERE id = ?"
+    query := "SELECT id, username, email, password, created_at, updated_at , date_modification FROM users WHERE id = ?"
     row := db.QueryRow(query, id)
     
     // Gunakan variabel sementara untuk menyimpan hasil query
@@ -62,23 +62,24 @@ func GetUserById(db *sql.DB, id string) (models.User, error) {
         password    string
         createdAt  []uint8
         updatedAt  []uint8
+        date_modification string
     )
     
     // Lakukan scanning ke variabel sementara
-    err := row.Scan(&userId, &username, &email, &password, &createdAt, &updatedAt)
+    err := row.Scan(&userId, &username, &email, &password, &createdAt, &updatedAt, &date_modification)
     if err != nil {
-        return models.User{}, fmt.Errorf("gagal mengambil data dengan id: %v", err)
+        return models.User{}, fmt.Errorf("failed to scan user data: %v", err)
     }
     
     // Konversi byte array ke time.Time
     createdAtTime, err := helper.Converter(createdAt)
     if err != nil {
-        return models.User{}, fmt.Errorf("gagal mengkonversi created_at: %v", err)
+        return models.User{}, fmt.Errorf("failed to convert created_at time: %v", err)
     }
     
     updatedAtTime, err := helper.Converter(updatedAt)
     if err != nil {
-        return models.User{}, fmt.Errorf("gagal mengkonversi updated_at: %v", err)
+        return models.User{}, fmt.Errorf("failed to convert updated_at time: %v", err)
     }
     
     // Buat dan return struct User yang sudah dikonversi
@@ -89,6 +90,7 @@ func GetUserById(db *sql.DB, id string) (models.User, error) {
         Password: password,
         CreatedAt: createdAtTime,
         UpdatedAt: updatedAtTime,
+        DateModification: date_modification,
     }, nil
 }
 
@@ -101,17 +103,17 @@ func UpdateUser(db *sql.DB, user models.User, id string) (string, error){
 
 	stmt, err := db.Prepare(query)
 	if err != nil{
-		return "", fmt.Errorf("anda gagal diawal pada fn, update query : %v", err)
+        return "", fmt.Errorf("failed to prepare update query in UpdateUser function: %v", err)
 	}
 	defer stmt.Close()
 	
 	result, err := stmt.Exec(user.Username, user.Email, user.Password, user.CreatedAt, user.UpdatedAt, id)
 	if err != nil{
-		return "", fmt.Errorf("gagal update user dengan id: %v", err)
+		return "", fmt.Errorf("failed to update user with ID %v: %v", id, err)
 	}
 
 	if affected , err := result.RowsAffected(); err != nil || affected == 0{
-		return "", fmt.Errorf("gagal update user dengan ID %v", id)
+        return "", fmt.Errorf("no changes detected when updating user with ID %v", id)
 	}
 	return id , nil
 }
@@ -120,18 +122,18 @@ func CreateUser(db *sql.DB, user models.User) (ResponseSaveSingle ,error){
 	user.CreatedAt = time.Now()
 	user.UpdatedAt = time.Now()
 	
-	query := "INSERT INTO users (username, email, password, created_at, updated_at) VALUES (?, ?, ?, ?, ?)"
+	query := "INSERT INTO users (username, email, password, created_at, updated_at, date_modification) VALUES (?, ?, ?, ?, ?, ?)"
 
 	stmt , err := db.Prepare(query)
 	if err != nil{
-		return ResponseSaveSingle{Message: err.Error()}, fmt.Errorf("gagal insert data: %v", err)
+		return ResponseSaveSingle{Message: err.Error()}, fmt.Errorf("failed prepare data: %v", err)
 	}
 	defer stmt.Close()
 
-	result ,err := stmt.Exec(user.Username, user.Email, user.Password, user.CreatedAt, user.UpdatedAt)
+	result ,err := stmt.Exec(user.Username, user.Email, user.Password, user.CreatedAt, user.UpdatedAt, user.DateModification)
 
 	if err != nil{
-		return ResponseSaveSingle{Message: err.Error()} , fmt.Errorf("gagal insert data: %v", err)
+		return ResponseSaveSingle{Message: err.Error()} , fmt.Errorf("failed insert data: %v", err)
 	}
 
     id, err := result.LastInsertId()
