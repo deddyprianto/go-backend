@@ -4,7 +4,6 @@ import (
 	"api-garuda/pkg/database"
 	"api-garuda/pkg/models"
 	"database/sql"
-	"fmt"
 
 	"github.com/gofiber/fiber/v2"
 )
@@ -21,13 +20,11 @@ func NewAuthHandler(db *sql.DB) *AuthHandler{
 
 func (h *AuthHandler) RegisterUser(c *fiber.Ctx) error{
 	var req models.RegisterRequest
-	fmt.Println(req)
 	if err := c.BodyParser(&req); err != nil{
 		return c.Status(400).JSON(fiber.Map{
 			"message": "Invalid request Body: " + err.Error(),
 		})
 	}
-	fmt.Println(req)
 
 	// validate input
 	if req.Email != "" || req.Password != "" || req.Name != ""{
