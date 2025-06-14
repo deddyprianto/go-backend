@@ -1,12 +1,16 @@
 package database
 
 import (
+	"api-garuda/internal/middleware"
 	"api-garuda/pkg/helper"
 	"api-garuda/pkg/models"
 	"database/sql"
+	"errors"
 	"fmt"
 	"strconv"
 	"time"
+
+	"golang.org/x/crypto/bcrypt"
 )
 
 type Response struct{
@@ -90,7 +94,6 @@ func GetUserById(db *sql.DB, id string) (models.User, error) {
         Password: password,
         CreatedAt: createdAtTime,
         UpdatedAt: updatedAtTime,
-        DateModification: date_modification,
     }, nil
 }
 
@@ -130,7 +133,7 @@ func CreateUser(db *sql.DB, user models.User) (ResponseSaveSingle ,error){
 	}
 	defer stmt.Close()
 
-	result ,err := stmt.Exec(user.Username, user.Email, user.Password, user.CreatedAt, user.UpdatedAt, user.DateModification)
+	result ,err := stmt.Exec(user.Username, user.Email, user.Password, user.CreatedAt, user.UpdatedAt)
 
 	if err != nil{
 		return ResponseSaveSingle{Message: err.Error()} , fmt.Errorf("failed insert data: %v", err)
@@ -164,3 +167,89 @@ func DeleteUser(db *sql.DB, id string) (int64, error){
 	return result.RowsAffected()
 }
 
+
+// query for login and authenthication
+
+func Register(db *sql.DB,req models.RegisterRequest) (*models.AuthResponse, error){
+	// check if user already exist
+	var existingUser models.UserLogin
+	err := db.QueryRow("SELECT id FROM userslogin WHERE email = ?", req.Email).Scan(&existingUser.ID)
+	if err != nil{
+		return nil, errors.New("user with this email is already exist")
+	}
+
+	// hash password
+	// generate jwt token
+	hashPassword, err := bcrypt.GenerateFromPassword([]byte(req.Password), bcrypt.DefaultCost)
+	if err != nil{
+		return nil, errors.New("failed to hash password")
+	}
+
+	// insert new user
+	result, err := db.Exec("INSERT INTO users (name,email,password, created_at, updated_at) VALUES (?,?,?,NOW(),NOW())", req.Name, req.Email, string(hashPassword)) 
+
+	if err != nil{
+		return nil ,errors.New("failed to create user")
+	}
+
+	userID, _ := result.LastInsertId()
+
+	// generate JWT Token
+	token, err := middleware.GenerateToken(uint(userID), req.Email)
+
+	if err != nil{
+		return nil, errors.New("failed to generate token")
+	}
+
+	// return response
+	user := &models.UserLogin{
+		ID: uint(userID),
+		Name: req.Name,
+		Email: req.Email,
+	}
+
+	return &models.AuthResponse{
+		Message: "user Register success",
+		Token: token,
+		User: user,
+	},nil
+}
+
+func Login(db *sql.DB,req models.LoginRequest) (*models.AuthResponse, error){
+	// dapatkan user dari database 
+	var user models.UserLogin
+	err := db.QueryRow("SELECT id,name,email,password FROM userslogin WHERE email= ?", req.Email).Scan(&user.ID, &user.Name, &user.Email, &user.Password)
+	if err != nil{
+		return nil, errors.New("user not found")
+	}
+
+	// Verify password
+	err = bcrypt.CompareHashAndPassword([]byte(user.Password), []byte(req.Password))
+	if err != nil {
+		return nil, errors.New("invalid email or password")
+	}
+
+	// Generate JWT token
+	token,err := middleware.GenerateToken(user.ID, user.Email)
+	if err != nil{
+		return nil, errors.New("Failed to generate Token")
+	}
+
+	// return response don't include password
+	user.Password = ""
+	return &models.AuthResponse{
+		Message: "success login",
+		Token: token,
+		User: &user,
+	},nil
+}
+
+
+func GetProfile(db *sql.DB,userID uint) (*models.UserLogin, error){
+	var user models.UserLogin
+	err := db.QueryRow("SELECT id,name,email,created_at,updated_at FROM userslogin WHERE id= ?", userID).Scan(&user.ID, &user.Name, &user.Email, &user.CreatedAt, &user.UpdatedAt)
+	if err != nil {
+		return nil, errors.New("user not found")
+	}
+	return &user, nil
+}
