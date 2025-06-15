@@ -2,6 +2,7 @@ package middleware
 
 import (
 	"os"
+	"strings"
 	"time"
 
 	"github.com/gofiber/fiber/v2"
@@ -25,27 +26,41 @@ func getJWTSecret() []byte {
 func JWTMiddleWare() fiber.Handler {
 	return func(c *fiber.Ctx) error {
 		authHeader := c.Get("Authorization")
+		
 		if authHeader == "" {
 			return c.Status(401).JSON(fiber.Map{
-				"message": "Unauthorized",
+				"error": "Unauthorized",
 			})
 		}
-		tokenString := ""
-		if len(authHeader) > 7 && authHeader[:7] == "Bearer" {
-			tokenString = authHeader[7:]
-		} else {
+		// Cek apakah header dimulai dengan "Bearer "
+		if !strings.HasPrefix(authHeader, "Bearer ") {
 			return c.Status(401).JSON(fiber.Map{
-				"message": "invalid Authorization header format",
+				"error": "invalid Authorization header format",
 			})
 		}
-
+		// Ambil token dengan menghapus "Bearer " di awal
+		tokenString := strings.TrimPrefix(authHeader, "Bearer ")
+		if tokenString == ""{
+			return c.Status(401).JSON(fiber.Map{
+				"error": "invalid Authorization header format from TrimPrefix",
+			})
+		}
+		// tokenString := ""
+		// if len(authHeader) > 7 && authHeader[:7] == "Bearer" {
+		// 	tokenString = authHeader[7:]
+		// } else {
+		// 	return c.Status(401).JSON(fiber.Map{
+		// 		"message": "invalid Authorization header format",
+		// 	})
+		// }
+		
 		token, err := jwt.ParseWithClaims(tokenString, &Claims{}, func(token *jwt.Token) (interface{}, error) {
 			return getJWTSecret(), nil
 		})
 
 		if err != nil || !token.Valid {
 			return c.Status(401).JSON(fiber.Map{
-				"message": "invalid or expired token",
+				"message": "sorry your token is expired",
 			})
 		}
 

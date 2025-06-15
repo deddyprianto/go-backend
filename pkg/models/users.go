@@ -24,6 +24,14 @@ type UserLogin struct{
 	CreatedAt time.Time `db:"created_at"`
 	UpdatedAt time.Time `db:"updated_at"`
 }
+type UserProfile struct {
+    ID        uint      `db:"id"`
+    Name      string    `db:"name"`
+    Email     string    `db:"email"`
+	CreatedAt sql.NullTime `db:"created_at"`
+	UpdatedAt sql.NullTime `db:"updated_at"`
+}
+
 
 type LoginRequest struct {
 	Email string `json:"email" validate:"required,email"`

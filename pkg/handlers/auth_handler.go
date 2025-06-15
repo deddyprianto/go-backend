@@ -25,11 +25,10 @@ func (h *AuthHandler) RegisterUser(c *fiber.Ctx) error{
 			"message": "Invalid request Body: " + err.Error(),
 		})
 	}
-
 	// validate input
-	if req.Email != "" || req.Password != "" || req.Name != ""{
+	if req.Email == "" || req.Password == "" || req.Name == ""{
 		return c.Status(400).JSON(fiber.Map{
-			"error" : "name or email or password cannot be empty",
+			"error" : "name or email or password cannot be empty ya anjing",
 		})
 	}
 
@@ -56,7 +55,6 @@ func (h *AuthHandler) Login(c *fiber.Ctx) error{
 		})
 	}
 	// validate input
-
 	if req.Email == "" || req.Password == ""{
 		return c.Status(400).JSON(fiber.Map{
 			"error" : "email or password cannot be empty",
@@ -65,7 +63,6 @@ func (h *AuthHandler) Login(c *fiber.Ctx) error{
 
 	// login user
 	response, err := database.Login(h.db,req);
-
 	if err != nil{
 		status := 500
 		if err.Error() == "invalid email or password"{
@@ -79,7 +76,7 @@ func (h *AuthHandler) Login(c *fiber.Ctx) error{
 	
 }
 
-func (h *AuthHandler) GetUserProfile(c *fiber.Ctx) error{
+func (h *AuthHandler) GetUserProfile(c *fiber.Ctx) error {
 	id := c.Locals("user_id").(uint)
 	user, err := database.GetProfile(h.db, id)
 

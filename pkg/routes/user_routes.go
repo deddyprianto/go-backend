@@ -18,6 +18,7 @@ func SetupRoutes(app *fiber.App, db *sql.DB){
 	auth := api.Group("/auth")
 	auth.Post("/register", authHandler.RegisterUser)
 	auth.Post("/login", authHandler.Login)
+	
 	users := api.Group("/users")
 
 	users.Use(middleware.JWTMiddleWare())

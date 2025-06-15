@@ -12,6 +12,7 @@ import (
 )
 
 func main() {
+    // connect to database
     db ,err := database.NewConnection()
     if err != nil{
         fmt.Println("FAILED CONNECTED TO DATABASE")
@@ -21,11 +22,12 @@ func main() {
 
     err = database.PingDatabase(db)
     if err != nil{
-        fmt.Println("gagal")
+        fmt.Println("FAILED PING TO DATABASE")
         return
     }
-    fmt.Println("FAILED PING TO DATABASE")
+    fmt.Println("SUCCESS CONNECTED TO DATABASE")
 
+    // routing
     app := fiber.New(fiber.Config{
         ErrorHandler: func(c *fiber.Ctx, err error) error {
             code := fiber.StatusInternalServerError
