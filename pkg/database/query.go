@@ -176,7 +176,6 @@ func Register(db *sql.DB, req models.RegisterRequest) (*models.AuthResponse, err
 		return nil, errors.New("user with this email already exists")
 	}
 	// hash password
-	// generate jwt token
 	hashPassword, err := bcrypt.GenerateFromPassword([]byte(req.Password), bcrypt.DefaultCost)
 	if err != nil {
 		return nil, errors.New("failed to hash password")
@@ -192,8 +191,7 @@ func Register(db *sql.DB, req models.RegisterRequest) (*models.AuthResponse, err
 	userID, _ := result.LastInsertId()
 
 	// generate JWT Token
-	token, err := middleware.GenerateToken(uint(userID), req.Email)
-
+	tokenPair, err := middleware.GenerateTokenPair(uint(userID), req.Email)
 	if err != nil {
 		return nil, errors.New("failed to generate token")
 	}
@@ -207,7 +205,7 @@ func Register(db *sql.DB, req models.RegisterRequest) (*models.AuthResponse, err
 
 	return &models.AuthResponse{
 		Message: "user Register success",
-		Token:   token,
+		Token:   tokenPair,
 		User:    user,
 	}, nil
 }
@@ -221,26 +219,36 @@ func Login(db *sql.DB, req models.LoginRequest) (*models.AuthResponse, error) {
 	if err != nil {
 		return nil, errors.New("user not found")
 	}
-
 	// Verify password
 	err = bcrypt.CompareHashAndPassword([]byte(user.Password), []byte(req.Password))
 	if err != nil {
 		return nil, errors.New("invalid email or password")
 	}
-
-	// Generate JWT token
-	token, err := middleware.GenerateToken(user.ID, user.Email)
-	if err != nil {
-		return nil, errors.New("failed to generate Token")
-	}
-
 	// return response don't include password
 	user.Password = ""
 	return &models.AuthResponse{
 		Message: "success login",
-		Token:   token,
 		User:    &user,
 	}, nil
+}
+
+func parseDateTime(dateStr string) (time.Time, error) {
+	formats := []string{
+		"2006-01-02 15:04:05",           // MySQL DATETIME
+		"2006-01-02T15:04:05Z",          // ISO 8601 UTC
+		"2006-01-02T15:04:05.000Z",      // ISO 8601 dengan milliseconds
+		"2006-01-02T15:04:05-07:00",     // ISO 8601 dengan timezone
+		"2006-01-02T15:04:05.000-07:00", // ISO 8601 dengan milliseconds dan timezone
+		time.RFC3339,                    // RFC3339
+		time.RFC3339Nano,
+	}
+	for _, format := range formats {
+		if t, err := time.Parse(format, dateStr); err == nil {
+			return t, nil
+		}
+	}
+
+	return time.Time{}, fmt.Errorf("unable to parse datetime: %s", dateStr)
 }
 
 func GetProfile(db *sql.DB, userID uint) (*models.UserProfile, error) {
@@ -249,39 +257,40 @@ func GetProfile(db *sql.DB, userID uint) (*models.UserProfile, error) {
 	row := db.QueryRow(query, userID)
 
 	var (
-		id uint
-		name string
-		email string
+		id        uint
+		name      string
+		email     string
 		createdAt []uint8
 		updatedAt []uint8
 	)
-	
+
 	// Gunakan sql.NullTime untuk menangani created_at dan updated_at
 	err := row.Scan(&id, &name, &email, &createdAt, &updatedAt)
-	
+
 	if err != nil {
-		return nil, errors.New("user not found")
+		if err == sql.ErrNoRows {
+			return nil, errors.New("user not found")
+		}
+		return nil, fmt.Errorf("failed to scan row: %v", err)
+	}
+
+	createdAtStr := string(createdAt)
+	parsedCreateAt, err := parseDateTime(createdAtStr)
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse created_at: %v", err)
+	}
+
+	updatedAtStr := string(updatedAt)
+	parsedUpdatedAt, err := parseDateTime(updatedAtStr)
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse updated_at: %v", err)
 	}
 
 	profile.ID = id
 	profile.Name = name
 	profile.Email = email
-	// Parsing waktu dengan format sesuai database Anda
-	// Misalnya format '2006-01-02 15:04:05'
-	createdAtStr := string(createdAt)
-	t, err := time.Parse("2006-01-02 15:04:05", createdAtStr)
+	profile.CreatedAt = parsedCreateAt
+	profile.UpdatedAt = parsedUpdatedAt
 
-	if err != nil{
-		return nil , errors.New("failed to parse created_at")
-	}
-	profile.CreatedAt = sql.NullTime{Time: t,Valid: true,}
-
-	updatedAtStr := string(updatedAt)
-	t, err = time.Parse("2006-01-02 15:04:05", updatedAtStr)
-	if err != nil{
-		return nil , errors.New("failed to parse updated_at")
-	}
-	profile.UpdatedAt = sql.NullTime{Time: t,Valid: true,}
-	
-	return &profile, nil 
+	return &profile, nil
 }

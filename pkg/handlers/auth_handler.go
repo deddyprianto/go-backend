@@ -1,9 +1,11 @@
 package handlers
 
 import (
+	"api-garuda/internal/middleware"
 	"api-garuda/pkg/database"
 	"api-garuda/pkg/models"
 	"database/sql"
+	"encoding/json"
 
 	"github.com/gofiber/fiber/v2"
 )
@@ -11,80 +13,108 @@ import (
 type AuthHandler struct {
 	db *sql.DB
 }
- 
-func NewAuthHandler(db *sql.DB) *AuthHandler{
+
+func NewAuthHandler(db *sql.DB) *AuthHandler {
 	return &AuthHandler{
 		db: db,
 	}
 }
 
-func (h *AuthHandler) RegisterUser(c *fiber.Ctx) error{
+func (h *AuthHandler) RegisterUser(c *fiber.Ctx) error {
 	var req models.RegisterRequest
-	if err := c.BodyParser(&req); err != nil{
+	if err := c.BodyParser(&req); err != nil {
 		return c.Status(400).JSON(fiber.Map{
 			"message": "Invalid request Body: " + err.Error(),
 		})
 	}
 	// validate input
-	if req.Email == "" || req.Password == "" || req.Name == ""{
+	if req.Email == "" || req.Password == "" || req.Name == "" {
 		return c.Status(400).JSON(fiber.Map{
-			"error" : "name or email or password cannot be empty ya anjing",
+			"error": "name or email or password cannot be empty",
 		})
 	}
 
 	// register user
 	response, err := database.Register(h.db, req)
-	if err != nil{
+	if err != nil {
 		status := 500
-		if err .Error() == "user with this email is already exist"{
+		if err.Error() == "user with this email is already exist" {
 			status = 409
 		}
 
 		return c.Status(status).JSON(fiber.Map{
-			"error" : err.Error(),
+			"error": err.Error(),
 		})
 	}
-	return c.Status(200).JSON(response)
+
+	return c.JSON(fiber.Map{
+		"message": "Register success",
+		"data": fiber.Map{
+			"id":    response.User.ID,
+			"email": response.User.Email,
+			"name":  response.User.Name,
+		},
+	})
+
 }
 
-func (h *AuthHandler) Login(c *fiber.Ctx) error{
+func (h *AuthHandler) Login(c *fiber.Ctx) error {
 	var req models.LoginRequest
-	if err := c.BodyParser(&req); err != nil{
+	if err := c.BodyParser(&req); err != nil {
 		return c.Status(400).JSON(fiber.Map{
-			"error" : "Invalid request Body: " + err.Error(),
+			"error": "Invalid request Body: " + err.Error(),
 		})
 	}
 	// validate input
-	if req.Email == "" || req.Password == ""{
+	if req.Email == "" || req.Password == "" {
 		return c.Status(400).JSON(fiber.Map{
-			"error" : "email or password cannot be empty",
+			"error": "email or password cannot be empty",
 		})
 	}
 
 	// login user
-	response, err := database.Login(h.db,req);
-	if err != nil{
+	response, err := database.Login(h.db, req)
+	if err != nil {
 		status := 500
-		if err.Error() == "invalid email or password"{
+		if err.Error() == "invalid email or password" {
 			status = 401
 		}
 		return c.Status(status).JSON(fiber.Map{
-			"error" : err.Error(),
+			"error": err.Error(),
 		})
 	}
-	return c.JSON(response)
-	
+	tokenPair, err := middleware.GenerateTokenPair(response.User.ID, response.User.Email)
+	if err != nil {
+		return c.Status(500).JSON(fiber.Map{
+			"error": "failed to generate token pair: " + err.Error(),
+		})
+	}
+	return c.JSON(fiber.Map{
+		"message": "Login success",
+		"data": fiber.Map{
+			"id":    response.User.ID,
+			"email": response.User.Email,
+			"name":  response.User.Name,
+		},
+		"access_token":  tokenPair.AccessToken,
+		"refresh_token": tokenPair.RefreshToken,
+		"token_type":    "Bearer",
+		"expires_in":    86400,
+	})
+
 }
 
 func (h *AuthHandler) GetUserProfile(c *fiber.Ctx) error {
 	id := c.Locals("user_id").(uint)
-	user, err := database.GetProfile(h.db, id)
+	profile, err := database.GetProfile(h.db, id)
 
-	if err != nil{
+	if err != nil {
 		return c.Status(404).JSON(fiber.Map{
-			"error" : err.Error(),
+			"error": err.Error(),
 		})
 	}
+	response := profile.ToResponse()
+	jsonDta, _ := json.Marshal(response)
 
-	return c.JSON(user)
+	return c.JSON(jsonDta)
 }

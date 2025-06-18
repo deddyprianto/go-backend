@@ -1,6 +1,7 @@
 package models
 
 import (
+	"api-garuda/internal/middleware"
 	"api-garuda/pkg/helper"
 	"database/sql"
 	"fmt"
@@ -28,10 +29,30 @@ type UserProfile struct {
     ID        uint      `db:"id"`
     Name      string    `db:"name"`
     Email     string    `db:"email"`
-	CreatedAt sql.NullTime `db:"created_at"`
-	UpdatedAt sql.NullTime `db:"updated_at"`
+	CreatedAt time.Time `db:"created_at"`
+	UpdatedAt time.Time `db:"updated_at"`
 }
 
+type TimeWrapper struct {
+	Time string `json:"time"`
+}
+type UserProfileResponse struct{
+	ID uint `json:"id"`
+	Name string `json:"name"`
+	Email string `json:"email"`
+	CreatedAt TimeWrapper `json:"created_at"`
+	UpdatedAt TimeWrapper `json:"updated_at"`
+}
+
+func (u *UserProfile) ToResponse() *UserProfileResponse{
+	return &UserProfileResponse{
+		ID: u.ID,
+		Name: u.Name,
+		Email: u.Email,
+		CreatedAt: TimeWrapper{Time: u.CreatedAt.Format(time.RFC3339)},
+		UpdatedAt: TimeWrapper{Time: u.UpdatedAt.Format(time.RFC3339)},
+	}
+}
 
 type LoginRequest struct {
 	Email string `json:"email" validate:"required,email"`
@@ -46,7 +67,7 @@ type RegisterRequest struct {
 
 type AuthResponse struct {
 	Message string `json:"message"`
-	Token string `json:"token,omitempty"`
+	Token *middleware.TokenPair `json:"token,omitempty"`
 	User *UserLogin `json:"user,omitempty"`
 }
 // Error ini terjadi karena kita perlu menangani konversi tipe data untuk kolom created_at dan updated_at secara eksplisit ketika melakukan scanning data dari database. MySQL mengembalikan nilai datetime sebagai []uint8, dan kita perlu mengkonversinya ke time.Time.
