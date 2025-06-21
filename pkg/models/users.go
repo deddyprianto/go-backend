@@ -36,6 +36,11 @@ type UserProfile struct {
 type TimeWrapper struct {
 	Time string `json:"time"`
 }
+
+type RefreshTokenRequest struct {
+	RefreshToken string `json:"refresh_token" binding:"required"`
+}
+
 type UserProfileResponse struct{
 	ID uint `json:"id"`
 	Name string `json:"name"`
