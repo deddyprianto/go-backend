@@ -59,6 +59,7 @@ func generateAccessToken(userId uint, email string) (string, error) {
 	fmt.Println("token", token)
 	return token.SignedString(getJWTSecret())
 }
+
 func GenerateTokenPair(userId uint, email string) (*TokenPair, error) {
 	accessToken, err := generateAccessToken(userId, email)
 	if err != nil {

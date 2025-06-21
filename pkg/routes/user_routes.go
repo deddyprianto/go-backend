@@ -18,6 +18,7 @@ func SetupRoutes(app *fiber.App, db *sql.DB){
 	auth := api.Group("/auth")
 	auth.Post("/register", authHandler.RegisterUser)
 	auth.Post("/login", authHandler.Login)
+	auth.Post("/refresh", authHandler.RefreshTokenHandler)
 	
 	users := api.Group("/users")
 
@@ -29,5 +30,4 @@ func SetupRoutes(app *fiber.App, db *sql.DB){
 	users.Post("/", userHandler.CreateUser)
 	users.Put("/:id", userHandler.UpdateUser)
 	users.Delete("/:id", userHandler.DeleteUser)
-
 }
