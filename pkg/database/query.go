@@ -92,23 +92,6 @@ func GenerateNewToken(userID uint, email string, secretKey string) (*TokenPair, 
 	}, nil
 }
 
-// Tambahkan fungsi UpdateRefreshToken
-func UpdateRefreshToken(db *sql.DB, userID uint, refreshToken string) error {
-	query := "UPDATE userslogin SET refresh_token = ? WHERE id = ?"
-	stmt, err := db.Prepare(query)
-	if err != nil {
-		return fmt.Errorf("gagal prepare update refresh token query: %v", err)
-	}
-	defer stmt.Close()
-
-	_, err = stmt.Exec(refreshToken, userID)
-	if err != nil {
-		return fmt.Errorf("gagal update refresh token: %v", err)
-	}
-
-	return nil
-}
-
 type TokenPair struct {
 	AccessToken  string `json:"access_token"`
 	RefreshToken string `json:"refresh_token"`

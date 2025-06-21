@@ -5,6 +5,8 @@ import (
 	"api-garuda/pkg/database"
 	"api-garuda/pkg/models"
 	"database/sql"
+	"os"
+	"strings"
 
 	"github.com/gofiber/fiber/v2"
 )
@@ -58,44 +60,55 @@ func (h *AuthHandler) RegisterUser(c *fiber.Ctx) error {
 }
 
 func (h *AuthHandler) RefreshTokenHandler(c *fiber.Ctx) error {
-    // Ambil token dari header
-    token := c.Get("Authorization")
-    if token == "" {
+	// get secretKey
+	secretKey := os.Getenv("JWT_SECRET")
+    if secretKey == "" {
+        return c.Status(500).JSON(fiber.Map{
+            "error": "JWT secret key tidak dikonfigurasi",
+        })
+    }
+    // Ambil token dari header Authorization
+    authHeader := c.Get("Authorization")
+    if authHeader == "" {
         return c.Status(401).JSON(fiber.Map{
             "error": "Unauthorized, token tidak ditemukan",
         })
     }
 
+    // Extract token dari "Bearer <token>"
+    token := strings.TrimPrefix(authHeader, "Bearer ")
+    if token == authHeader {
+        return c.Status(401).JSON(fiber.Map{
+            "error": "Format token tidak valid, gunakan Bearer <token>",
+        })
+    }
+
     // Validasi token yang ada
-    claims, err := database.ValidateToken(token + "Bearer ", "your-secret-key")
+    claims, err := database.ValidateToken(token, secretKey)
     if err != nil {
         return c.Status(401).JSON(fiber.Map{
             "error": "Token tidak valid atau sudah expired",
         })
     }
 
-    // Generate token baru
-    newToken, err := database.GenerateNewToken(claims.UserID, claims.Email, "your-secret-key")
+    // Generate token baru dengan data user yang fresh
+    newToken, err := database.GenerateNewToken(claims.UserID, claims.Email, secretKey)
     if err != nil {
         return c.Status(500).JSON(fiber.Map{
             "error": "Gagal generate token baru",
         })
     }
 
-    // Refresh token di database
-    err = database.UpdateRefreshToken(h.db, claims.UserID, newToken.RefreshToken)
-    if err != nil {
-        return c.Status(500).JSON(fiber.Map{
-            "error": "Gagal update refresh token di database",
-        })
-    }
-
     return c.JSON(fiber.Map{
-        "access_token": newToken.AccessToken,
+        "access_token":  newToken.AccessToken,
         "refresh_token": newToken.RefreshToken,
+        "user": fiber.Map{
+            "id":    claims.UserID,
+            "name":  claims.Name,
+            "email": claims.Email,
+        },
     })
 }
-
 func (h *AuthHandler) Login(c *fiber.Ctx) error {
 	var req models.LoginRequest
 	if err := c.BodyParser(&req); err != nil {
