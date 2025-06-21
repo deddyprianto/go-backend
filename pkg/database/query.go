@@ -10,6 +10,7 @@ import (
 	"strconv"
 	"time"
 
+	"github.com/golang-jwt/jwt/v4"
 	"golang.org/x/crypto/bcrypt"
 )
 
@@ -21,6 +22,96 @@ type Response struct {
 type ResponseSaveSingle struct {
 	Message string `json:"message"`
 	Data    int    `json:"data"`
+}
+
+// Tambahkan struct Claims untuk menangani token JWT
+type Claims struct {
+	UserID         uint   `json:"user_id"`
+	Name           string `json:"name"`
+	Email          string `json:"email"`
+	ExpiresAt      jwt.NumericDate
+	StandardClaims jwt.RegisteredClaims
+}
+
+func (c *Claims) Valid() error {
+	if c.ExpiresAt.IsZero() {
+		return nil
+	}
+	// Jika current time sudah melebihi expiresAt, token sudah expired
+	if time.Now().Unix() > c.ExpiresAt.Unix() {
+		return fmt.Errorf("token expired")
+	}
+	return nil
+}
+
+func ValidateToken(token string, secretKey string) (*Claims, error) {
+	claims := &Claims{}
+	_, err := jwt.ParseWithClaims(token, claims, func(token *jwt.Token) (interface{}, error) {
+		return []byte(secretKey), nil
+	})
+	if err != nil {
+		return nil, fmt.Errorf("token invalid or expired: %v", err)
+	}
+	return claims, nil
+}
+
+func GenerateNewToken(userID uint, email string, secretKey string) (*TokenPair, error) {
+	// Access token expiration (15 menit)
+	accessTokenExp := jwt.NewNumericDate(time.Now().Add(15 * time.Minute))
+
+	// Refresh token expiration (1 minggu)
+	refreshTokenExp := jwt.NewNumericDate(time.Now().Add(168 * time.Hour))
+
+	// Generate access token
+	accessClaims := &Claims{
+		UserID: userID,
+		Name:   "User",
+		Email:  email,
+		StandardClaims: jwt.RegisteredClaims{
+			ExpiresAt: accessTokenExp,
+			IssuedAt:  jwt.NewNumericDate(time.Now()),
+		},
+	}
+
+	accessToken, err := jwt.NewWithClaims(jwt.SigningMethodHS256, accessClaims).SignedString([]byte(secretKey))
+	if err != nil {
+		return nil, fmt.Errorf("gagal generate access token: %v", err)
+	}
+	
+	refreshToken, err := jwt.NewWithClaims(jwt.SigningMethodHS256, &Claims{
+		ExpiresAt: *refreshTokenExp,
+	}).SignedString([]byte(secretKey))
+
+	if err != nil {
+		return nil, fmt.Errorf("gagal generate refresh token: %v", err)
+	}
+
+	return &TokenPair{
+		AccessToken:  accessToken,
+		RefreshToken: refreshToken,
+	}, nil
+}
+
+// Tambahkan fungsi UpdateRefreshToken
+func UpdateRefreshToken(db *sql.DB, userID uint, refreshToken string) error {
+	query := "UPDATE userslogin SET refresh_token = ? WHERE id = ?"
+	stmt, err := db.Prepare(query)
+	if err != nil {
+		return fmt.Errorf("gagal prepare update refresh token query: %v", err)
+	}
+	defer stmt.Close()
+
+	_, err = stmt.Exec(refreshToken, userID)
+	if err != nil {
+		return fmt.Errorf("gagal update refresh token: %v", err)
+	}
+
+	return nil
+}
+
+type TokenPair struct {
+	AccessToken  string `json:"access_token"`
+	RefreshToken string `json:"refresh_token"`
 }
 
 func GetAllUSers(db *sql.DB) (Response, error) {
