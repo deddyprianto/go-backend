@@ -2,6 +2,7 @@ package helper
 
 import (
 	"context"
+	"encoding/base64"
 	"fmt"
 	"os"
 	"time"
@@ -54,8 +55,14 @@ func SaveProfilePicture(profilePicture string) (string, error) {
     fileName := fmt.Sprintf("%d_%s", time.Now().UnixNano(), "profile.jpg")
     filePath := fmt.Sprintf("%s/%s", dir, fileName)
 
-    // Save the file
-    if err := os.WriteFile(filePath, []byte(profilePicture), 0644); err != nil {
+    // Decode base64 string to bytes
+    decodedBytes, err := base64.StdEncoding.DecodeString(profilePicture)
+    if err != nil {
+        return "", fmt.Errorf("failed to decode base64: %v", err)
+    }
+
+    // Save the decoded bytes to file
+    if err := os.WriteFile(filePath, decodedBytes, 0644); err != nil {
         return "", fmt.Errorf("failed to save profile picture: %v", err)
     }
 
