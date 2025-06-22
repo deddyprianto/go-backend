@@ -5,7 +5,6 @@ import (
 	"api-garuda/pkg/models"
 	"database/sql"
 	"encoding/base64"
-	"fmt"
 	"io"
 	"time"
 
@@ -50,7 +49,7 @@ func (h *UserHandler) CreateEmployee(c *fiber.Ctx) error {
 			"message": "Failed to parse form data: " + err.Error(),
 		})
 	}
-	fmt.Println(form, "form data")
+	
 	// ambil nilai dari form fields
 	name := form.Value["name"][0]
 	position := form.Value["position"][0]
@@ -106,7 +105,7 @@ func (h *UserHandler) CreateUser(c *fiber.Ctx) error {
 			"message": "Failed to parse user data: " + err.Error(),
 		})
 	}
-	fmt.Println(user, "user data")
+
 	response, err := database.CreateUser(h.db, user)
 	if err != nil {
 		return c.Status(500).JSON(fiber.Map{

@@ -7,6 +7,7 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
+	"os"
 	"strconv"
 	"time"
 
@@ -193,32 +194,70 @@ func UpdateUser(db *sql.DB, user models.User, id string) (ResponseOnUpdate, erro
 	return ResponseOnUpdate{Message: "success update user", Data: user}, nil
 }
 
+// func CreateEmployee(db *sql.DB, employee models.Employee) (ResponseSaveSingleEmployee, error) {
+// 	employee.CreatedAt = time.Now()
+
+// 	query := "INSERT INTO passengers (name, position, created_at, profile_picture) VALUES (?, ?, ?, ?)"
+// 	stmt, err := db.Prepare(query)
+// 	if err != nil {
+// 		return ResponseSaveSingleEmployee{Message: err.Error()}, fmt.Errorf("failed to prepare insert query: %v", err)
+// 	}
+// 	defer stmt.Close()
+
+// 	result, err := stmt.Exec(employee.Name, employee.Position, employee.CreatedAt, employee.ProfilePicture)
+// 	if err != nil {
+// 		return ResponseSaveSingleEmployee{Message: err.Error()}, fmt.Errorf("failed to insert employee data: %v", err)
+// 	}
+
+// 	id, err := result.LastInsertId()
+// 	if err != nil {
+// 		return ResponseSaveSingleEmployee{
+// 			Message: err.Error(),
+// 			Data:    models.Employee{},
+// 		}, err
+// 	}
+// 	return ResponseSaveSingleEmployee{
+// 		Message: "success save data with id: " + strconv.Itoa(int(id)),
+// 		Data:    employee,
+// 	}, nil
+// }
+
 func CreateEmployee(db *sql.DB, employee models.Employee) (ResponseSaveSingleEmployee, error) {
-	employee.CreatedAt = time.Now()
+    employee.CreatedAt = time.Now()
 
-	query := "INSERT INTO employees (name, position, created_at, profile_picture) VALUES (?, ?, ?, ?)"
-	stmt, err := db.Prepare(query)
-	if err != nil {
-		return ResponseSaveSingleEmployee{Message: err.Error()}, fmt.Errorf("failed to prepare insert query: %v", err)
-	}
-	defer stmt.Close()
+    // Save the file first and get the file path
+    filePath, err := saveProfilePicture(employee.ProfilePicture)
+    if err != nil {
+        return ResponseSaveSingleEmployee{Message: err.Error()}, fmt.Errorf("failed to save profile picture: %v", err)
+    }
 
-	result, err := stmt.Exec(employee.Name, employee.Position, employee.CreatedAt, employee.ProfilePicture)
-	if err != nil {
-		return ResponseSaveSingleEmployee{Message: err.Error()}, fmt.Errorf("failed to insert employee data: %v", err)
-	}
+    query := "INSERT INTO passengers (name, position, created_at, profile_picture) VALUES (?, ?, ?, ?)"
+    stmt, err := db.Prepare(query)
+    if err != nil {
+        return ResponseSaveSingleEmployee{Message: err.Error()}, fmt.Errorf("failed to prepare insert query: %v", err)
+    }
+    defer stmt.Close()
 
-	id, err := result.LastInsertId()
-	if err != nil {
-		return ResponseSaveSingleEmployee{
-			Message: err.Error(),
-			Data:    models.Employee{},
-		}, err
-	}
-	return ResponseSaveSingleEmployee{
-		Message: "success save data with id: " + strconv.Itoa(int(id)),
-		Data:    employee,
-	}, nil
+    result, err := stmt.Exec(employee.Name, employee.Position, employee.CreatedAt, filePath)
+    if err != nil {
+        return ResponseSaveSingleEmployee{Message: err.Error()}, fmt.Errorf("failed to insert employee data: %v", err)
+    }
+
+    id, err := result.LastInsertId()
+    if err != nil {
+        return ResponseSaveSingleEmployee{
+            Message: err.Error(),
+            Data:    models.Employee{},
+        }, err
+    }
+
+    // Update the employee struct with the saved file path
+    employee.ProfilePicture = filePath
+
+    return ResponseSaveSingleEmployee{
+        Message: "success save data with id: " + strconv.Itoa(int(id)),
+        Data:    employee,
+    }, nil
 }
 
 func CreateUser(db *sql.DB, user models.User) (ResponseSaveSingle, error) {
@@ -337,25 +376,6 @@ func Login(db *sql.DB, req models.LoginRequest) (*models.AuthResponse, error) {
 	}, nil
 }
 
-func parseDateTime(dateStr string) (time.Time, error) {
-	formats := []string{
-		"2006-01-02 15:04:05",           // MySQL DATETIME
-		"2006-01-02T15:04:05Z",          // ISO 8601 UTC
-		"2006-01-02T15:04:05.000Z",      // ISO 8601 dengan milliseconds
-		"2006-01-02T15:04:05-07:00",     // ISO 8601 dengan timezone
-		"2006-01-02T15:04:05.000-07:00", // ISO 8601 dengan milliseconds dan timezone
-		time.RFC3339,                    // RFC3339
-		time.RFC3339Nano,
-	}
-	for _, format := range formats {
-		if t, err := time.Parse(format, dateStr); err == nil {
-			return t, nil
-		}
-	}
-
-	return time.Time{}, fmt.Errorf("unable to parse datetime: %s", dateStr)
-}
-
 func GetProfile(db *sql.DB, userID uint) (*models.UserProfile, error) {
 	var profile models.UserProfile
 	query := "SELECT id,name,email,created_at,updated_at FROM userslogin WHERE id= ?"
@@ -398,4 +418,43 @@ func GetProfile(db *sql.DB, userID uint) (*models.UserProfile, error) {
 	profile.UpdatedAt = parsedUpdatedAt
 
 	return &profile, nil
+}
+
+func parseDateTime(dateStr string) (time.Time, error) {
+	formats := []string{
+		"2006-01-02 15:04:05",           // MySQL DATETIME
+		"2006-01-02T15:04:05Z",          // ISO 8601 UTC
+		"2006-01-02T15:04:05.000Z",      // ISO 8601 dengan milliseconds
+		"2006-01-02T15:04:05-07:00",     // ISO 8601 dengan timezone
+		"2006-01-02T15:04:05.000-07:00", // ISO 8601 dengan milliseconds dan timezone
+		time.RFC3339,                    // RFC3339
+		time.RFC3339Nano,
+	}
+	for _, format := range formats {
+		if t, err := time.Parse(format, dateStr); err == nil {
+			return t, nil
+		}
+	}
+
+	return time.Time{}, fmt.Errorf("unable to parse datetime: %s", dateStr)
+}
+
+// Function to save profile picture and return the file path
+func saveProfilePicture(profilePicture string) (string, error) {
+    // Create a directory for profile pictures if it doesn't exist
+    dir := "profile_pictures"
+    if _, err := os.Stat(dir); os.IsNotExist(err) {
+        os.Mkdir(dir, 0755)
+    }
+
+    // Generate a unique filename
+    fileName := fmt.Sprintf("%d_%s", time.Now().UnixNano(), "profile.jpg")
+    filePath := fmt.Sprintf("%s/%s", dir, fileName)
+
+    // Save the file
+    if err := os.WriteFile(filePath, []byte(profilePicture), 0644); err != nil {
+        return "", fmt.Errorf("failed to save profile picture: %v", err)
+    }
+
+    return filePath, nil
 }
