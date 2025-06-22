@@ -48,15 +48,7 @@ func (h *AuthHandler) RegisterUser(c *fiber.Ctx) error {
 		})
 	}
 
-	return c.JSON(fiber.Map{
-		"message": "Register success",
-		"data": fiber.Map{
-			"id":    response.User.ID,
-			"email": response.User.Email,
-			"name":  response.User.Name,
-		},
-	})
-
+	return c.JSON(response)
 }
 
 func (h *AuthHandler) RefreshTokenHandler(c *fiber.Ctx) error {

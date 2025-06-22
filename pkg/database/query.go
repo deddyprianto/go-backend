@@ -20,8 +20,17 @@ type Response struct {
 }
 
 type ResponseSaveSingle struct {
-	Message string `json:"message"`
-	Data    int    `json:"data"`
+	Message string      `json:"message"`
+	Data    models.User `json:"data"`
+}
+type ResponseSaveSingleEmployee struct {
+	Message string          `json:"message"`
+	Data    models.Employee `json:"data"`
+}
+
+type ResponseOnUpdate struct {
+	Message string      `json:"message"`
+	Data    models.User `json:"data"`
 }
 
 // Tambahkan struct Claims untuk menangani token JWT
@@ -77,7 +86,7 @@ func GenerateNewToken(userID uint, email string, secretKey string) (*TokenPair, 
 	if err != nil {
 		return nil, fmt.Errorf("gagal generate access token: %v", err)
 	}
-	
+
 	refreshToken, err := jwt.NewWithClaims(jwt.SigningMethodHS256, &Claims{
 		ExpiresAt: *refreshTokenExp,
 	}).SignedString([]byte(secretKey))
@@ -129,7 +138,7 @@ func GetAllUSers(db *sql.DB) (Response, error) {
 }
 
 func GetUserById(db *sql.DB, id string) (models.User, error) {
-	query := "SELECT id, username, email, password, created_at, updated_at , date_modification FROM users WHERE id = ?"
+	query := "SELECT id, username, email,date_modification, created_at FROM users WHERE id = ?"
 	row := db.QueryRow(query, id)
 
 	// Gunakan variabel sementara untuk menyimpan hasil query
@@ -137,14 +146,12 @@ func GetUserById(db *sql.DB, id string) (models.User, error) {
 		userId            string
 		username          string
 		email             string
-		password          string
-		createdAt         []uint8
-		updatedAt         []uint8
 		date_modification string
+		createdAt         []uint8
 	)
 
 	// Lakukan scanning ke variabel sementara
-	err := row.Scan(&userId, &username, &email, &password, &createdAt, &updatedAt, &date_modification)
+	err := row.Scan(&userId, &username, &email, &date_modification, &createdAt)
 	if err != nil {
 		return models.User{}, fmt.Errorf("failed to scan user data: %v", err)
 	}
@@ -155,50 +162,68 @@ func GetUserById(db *sql.DB, id string) (models.User, error) {
 		return models.User{}, fmt.Errorf("failed to convert created_at time: %v", err)
 	}
 
-	updatedAtTime, err := helper.Converter(updatedAt)
-	if err != nil {
-		return models.User{}, fmt.Errorf("failed to convert updated_at time: %v", err)
-	}
-
 	// Buat dan return struct User yang sudah dikonversi
 	return models.User{
 		ID:        userId,
 		Username:  username,
 		Email:     email,
-		Password:  password,
 		CreatedAt: createdAtTime,
-		UpdatedAt: updatedAtTime,
 	}, nil
 }
 
-func UpdateUser(db *sql.DB, user models.User, id string) (string, error) {
+func UpdateUser(db *sql.DB, user models.User, id string) (ResponseOnUpdate, error) {
 	user.CreatedAt = time.Now()
-	user.UpdatedAt = time.Now()
 
-	query := "UPDATE users SET username=?, email=?, password=?, created_at=?, updated_at=? WHERE id=?"
+	query := "UPDATE users SET username=?, email=?, created_at=? WHERE id=?"
 
 	stmt, err := db.Prepare(query)
 	if err != nil {
-		return "", fmt.Errorf("failed to prepare update query in UpdateUser function: %v", err)
+		return ResponseOnUpdate{Message: "failed to prepare update query"}, fmt.Errorf("failed to prepare update query in UpdateUser function: %v", err)
 	}
 	defer stmt.Close()
 
-	result, err := stmt.Exec(user.Username, user.Email, user.Password, user.CreatedAt, user.UpdatedAt, id)
+	result, err := stmt.Exec(user.Username, user.Email, user.CreatedAt, id)
 	if err != nil {
-		return "", fmt.Errorf("failed to update user with ID %v: %v", id, err)
+		return ResponseOnUpdate{Message: fmt.Sprintf("failed to update user with ID %v", id)}, fmt.Errorf("failed to update user with ID %v: %v", id, err)
 	}
 
 	if affected, err := result.RowsAffected(); err != nil || affected == 0 {
-		return "", fmt.Errorf("no changes detected when updating user with ID %v", id)
+		return ResponseOnUpdate{Message: fmt.Sprintf("no changes detected when updating user with ID %v", id)}, fmt.Errorf("no changes detected when updating user with ID %v", id)
 	}
-	return id, nil
+	return ResponseOnUpdate{Message: "success update user", Data: user}, nil
+}
+
+func CreateEmployee(db *sql.DB, employee models.Employee) (ResponseSaveSingleEmployee, error) {
+	employee.CreatedAt = time.Now()
+
+	query := "INSERT INTO employees (name, position, created_at, profile_picture) VALUES (?, ?, ?, ?)"
+	stmt, err := db.Prepare(query)
+	if err != nil {
+		return ResponseSaveSingleEmployee{Message: err.Error()}, fmt.Errorf("failed to prepare insert query: %v", err)
+	}
+	defer stmt.Close()
+
+	result, err := stmt.Exec(employee.Name, employee.Position, employee.CreatedAt, employee.ProfilePicture)
+	if err != nil {
+		return ResponseSaveSingleEmployee{Message: err.Error()}, fmt.Errorf("failed to insert employee data: %v", err)
+	}
+
+	id, err := result.LastInsertId()
+	if err != nil {
+		return ResponseSaveSingleEmployee{
+			Message: err.Error(),
+			Data:    models.Employee{},
+		}, err
+	}
+	return ResponseSaveSingleEmployee{
+		Message: "success save data with id: " + strconv.Itoa(int(id)),
+		Data:    employee,
+	}, nil
 }
 
 func CreateUser(db *sql.DB, user models.User) (ResponseSaveSingle, error) {
 	user.CreatedAt = time.Now()
-	user.UpdatedAt = time.Now()
-
-	query := "INSERT INTO users (username, email, password, created_at, updated_at, date_modification) VALUES (?, ?, ?, ?, ?, ?)"
+	query := "INSERT INTO users (username, email, date_modification, created_at) VALUES (?, ?, ?, ?)"
 
 	stmt, err := db.Prepare(query)
 	if err != nil {
@@ -206,7 +231,7 @@ func CreateUser(db *sql.DB, user models.User) (ResponseSaveSingle, error) {
 	}
 	defer stmt.Close()
 
-	result, err := stmt.Exec(user.Username, user.Email, user.Password, user.CreatedAt, user.UpdatedAt)
+	result, err := stmt.Exec(user.Username, user.Email, user.DateModification, user.CreatedAt)
 
 	if err != nil {
 		return ResponseSaveSingle{Message: err.Error()}, fmt.Errorf("failed insert data: %v", err)
@@ -216,12 +241,18 @@ func CreateUser(db *sql.DB, user models.User) (ResponseSaveSingle, error) {
 	if err != nil {
 		return ResponseSaveSingle{
 			Message: err.Error(),
-			Data:    0,
+			Data:    models.User{},
 		}, err
 	}
 	return ResponseSaveSingle{
 		Message: "success save data with id: " + strconv.Itoa(int(id)),
-		Data:    int(id),
+		Data: models.User{
+			ID:        strconv.Itoa(int(id)),
+			Username:  user.Username,
+			Email:     user.Email,
+			DateModification: user.DateModification,
+			CreatedAt: user.CreatedAt,
+		},
 	}, nil
 }
 
